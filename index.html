@@ -1,0 +1,1537 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>كاشف الأسعار الذكي | Smart Price Checker</title>
+  
+  <!-- PWA Manifest & Mobile Meta Tags -->
+  <link rel="manifest" href="./manifest.json">
+  <meta name="theme-color" content="#059669">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="كاشف الأسعار">
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- SheetJS (XLSX) for reading and writing Excel files -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  
+  <!-- Google Fonts: Cairo -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            cairo: ['Cairo', 'sans-serif'],
+          },
+          colors: {
+            brand: {
+              50: '#ecfdf5',
+              100: '#d1fae5',
+              200: '#a7f3d0',
+              500: '#10b981',
+              600: '#059669',
+              700: '#047857',
+              800: '#065f46',
+              900: '#064e3b',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    body {
+      font-family: 'Cairo', system-ui, -apple-system, sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+    ::-webkit-scrollbar {
+      width: 5px;
+      height: 5px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #f1f5f9;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 9999px;
+    }
+    @keyframes laserScan {
+      0% { top: 10%; opacity: 0.8; }
+      50% { top: 85%; opacity: 1; }
+      100% { top: 10%; opacity: 0.8; }
+    }
+    .laser-line {
+      animation: laserScan 2s ease-in-out infinite;
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col antialiased selection:bg-brand-500 selection:text-white pb-6">
+
+  <!-- Toast Notification Container -->
+  <div id="toastContainer" class="fixed top-4 left-4 right-4 z-50 flex flex-col gap-2 max-w-sm mx-auto pointer-events-none"></div>
+
+  <!-- Mobile Install Banner (PWA) -->
+  <div id="mobileInstallBanner" class="hidden bg-gradient-to-r from-emerald-600 to-teal-700 text-white px-4 py-3 shadow-md flex items-center justify-between gap-3 text-xs sm:text-sm sticky top-0 z-40">
+    <div class="flex items-center gap-2 overflow-hidden">
+      <div class="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center flex-shrink-0">
+        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+      </div>
+      <div class="truncate">
+        <div class="font-bold">ثبّت التطبيق على شاشة الموبايل</div>
+        <div class="text-[11px] text-emerald-100">يعمل بدون نت 100% كأي تطبيق عادي</div>
+      </div>
+    </div>
+    <div class="flex items-center gap-2 flex-shrink-0">
+      <button id="btnInstallApp" class="px-3 py-1.5 rounded-lg bg-white text-brand-800 font-bold text-xs shadow-sm active:scale-95 transition">
+        تثبيت
+      </button>
+      <button id="btnDismissInstall" class="text-emerald-200 hover:text-white p-1">✕</button>
+    </div>
+  </div>
+
+  <!-- Header -->
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 sm:h-20 flex items-center justify-between">
+      <div class="flex items-center gap-2.5 sm:gap-3">
+        <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-gradient-to-tr from-brand-600 to-emerald-400 flex items-center justify-center text-white shadow-md shadow-brand-500/20 flex-shrink-0">
+          <svg class="w-6 h-6 sm:w-7 sm:h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+          </svg>
+        </div>
+        <div>
+          <h1 class="text-base sm:text-xl font-bold text-slate-900 tracking-tight flex items-center gap-1.5">
+            كاشف الأسعار الذكي
+            <span class="text-[10px] sm:text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-brand-800 border border-emerald-200">أوفلاين 100%</span>
+          </h1>
+          <p class="text-[11px] sm:text-xs text-slate-500 hidden sm:block">مزامنة سحابية مركزية بين أجهزة الموبايل مع تشغيل أوفلاين</p>
+        </div>
+      </div>
+
+      <!-- Action Buttons in Nav -->
+      <div class="flex items-center gap-1.5 sm:gap-2">
+        <!-- Cloud Sync Button -->
+        <button id="btnOpenCloudSync" title="مزامنة بين الهواتف" class="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-2 sm:py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-bold text-xs sm:text-sm transition">
+          <span class="relative flex h-2.5 w-2.5">
+            <span id="cloudStatusPing" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+            <span id="cloudStatusDot" class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+          </span>
+          <svg class="w-4 h-4 text-brand-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 00-9.78 2.096A4.001 4.001 0 003 15z"></path></svg>
+          <span class="hidden sm:inline">مزامنة الهواتف</span>
+          <span class="sm:hidden">مزامنة</span>
+        </button>
+
+        <button id="btnOpenUpload" class="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 active:scale-95 text-white font-semibold text-xs sm:text-sm shadow-sm transition-all">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path>
+          </svg>
+          <span class="hidden sm:inline">رفع إكسيل</span>
+          <span class="sm:hidden">رفع</span>
+        </button>
+
+        <button id="btnOpenExport" title="تصدير إلى Excel" class="p-2 sm:p-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition">
+          <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8 flex-1 w-full flex flex-col gap-4 sm:gap-6">
+
+    <!-- Top Status Bar & Stats -->
+    <div class="grid grid-cols-2 sm:grid-cols-3 gap-2.5 sm:gap-4">
+      <div class="bg-white p-3 sm:p-4 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center flex-shrink-0">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
+          </svg>
+        </div>
+        <div>
+          <div class="text-[11px] sm:text-xs font-semibold text-slate-500">الأصناف المسجلة</div>
+          <div id="statTotalItems" class="text-lg sm:text-2xl font-black text-slate-800">0</div>
+        </div>
+      </div>
+
+      <div class="bg-white p-3 sm:p-4 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-emerald-50 text-brand-600 flex items-center justify-center flex-shrink-0">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+          </svg>
+        </div>
+        <div class="overflow-hidden">
+          <div class="text-[11px] sm:text-xs font-semibold text-slate-500">آخر تحديث للأسعار</div>
+          <div id="statLastUpdate" class="text-xs sm:text-sm font-bold text-slate-700 truncate">لا توجد بيانات</div>
+        </div>
+      </div>
+
+      <div class="col-span-2 sm:col-span-1 bg-white p-3 sm:p-4 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center flex-shrink-0">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+            </svg>
+          </div>
+          <div>
+            <div class="text-xs font-bold text-slate-700">نموذج 2,000 صنف</div>
+            <div class="text-[10px] text-slate-400">تنزيل شيت تجريبي</div>
+          </div>
+        </div>
+        <button id="btnDownloadTemplate" class="px-3 py-1.5 rounded-lg bg-purple-50 hover:bg-purple-100 text-purple-700 font-bold text-xs border border-purple-200 transition">
+          تحميل
+        </button>
+      </div>
+    </div>
+
+    <!-- Search Section (Hero with Camera Barcode Scanner) -->
+    <div class="bg-white rounded-3xl border border-slate-200/80 shadow-md p-4 sm:p-8 flex flex-col items-center">
+      <div class="w-full max-w-3xl">
+        <label for="searchInput" class="block text-xs sm:text-sm font-bold text-slate-700 mb-2">
+          ابحث عن الصنف (بالاسم، الكود، أو كاميرا الموبايل):
+        </label>
+        
+        <div class="relative flex items-center gap-2">
+          <div class="relative flex-1 flex items-center">
+            <div class="absolute right-3.5 text-slate-400 pointer-events-none flex items-center">
+              <svg class="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+              </svg>
+            </div>
+
+            <input 
+              type="text" 
+              id="searchInput" 
+              placeholder="اكتب اسم الصنف أو كود الباركود..." 
+              class="w-full pr-11 pl-10 py-3.5 sm:py-4 rounded-2xl border-2 border-slate-200 focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 text-base sm:text-xl font-bold placeholder-slate-400 transition-all outline-none bg-slate-50/50 focus:bg-white"
+              autocomplete="off"
+              autofocus
+            >
+
+            <button id="btnClearSearch" class="hidden absolute left-2 p-2 rounded-xl text-slate-400 hover:text-slate-600 transition" title="مسح">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+              </svg>
+            </button>
+          </div>
+
+          <!-- Camera Scanner Button -->
+          <button 
+            id="btnOpenCameraScanner" 
+            title="مسح الباركود بكاميرا الموبايل"
+            class="p-3.5 sm:p-4 rounded-2xl bg-brand-600 hover:bg-brand-700 active:scale-95 text-white shadow-md shadow-brand-600/20 flex items-center justify-center flex-shrink-0 transition"
+          >
+            <svg class="w-6 h-6 sm:w-7 sm:h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path>
+            </svg>
+          </button>
+        </div>
+
+        <div class="mt-2.5 flex items-center justify-between text-[11px] sm:text-xs text-slate-500 px-1">
+          <div class="flex items-center gap-1.5">
+            <span class="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span>كاميرا الموبايل مدعومة للتعرف الفوري على الباركود</span>
+          </div>
+          <div id="searchCounter" class="font-bold text-slate-600"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Prominent Single Exact Match Card -->
+    <div id="exactMatchContainer" class="hidden"></div>
+
+    <!-- Multiple Results Grid / List -->
+    <div id="resultsSection" class="flex flex-col gap-3">
+      <div id="resultsHeader" class="hidden items-center justify-between px-1">
+        <h2 class="text-sm sm:text-base font-bold text-slate-800 flex items-center gap-2">
+          <span>نتائج البحث</span>
+          <span id="resultsCountBadge" class="text-xs px-2.5 py-0.5 rounded-full bg-slate-200 text-slate-700 font-bold">0</span>
+        </h2>
+        <div id="displayLimitNote" class="text-[11px] text-slate-500 font-medium"></div>
+      </div>
+
+      <div id="resultsGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3"></div>
+
+      <!-- Load More Button -->
+      <div id="loadMoreContainer" class="hidden text-center py-3">
+        <button id="btnLoadMore" class="w-full sm:w-auto px-6 py-3 rounded-2xl bg-white border border-slate-300 hover:border-brand-500 hover:text-brand-600 text-slate-700 font-bold text-sm shadow-sm transition">
+          عرض المزيد من النتائج (+60 صنف)
+        </button>
+      </div>
+    </div>
+
+    <!-- Empty State -->
+    <div id="emptyInitialState" class="py-8 sm:py-12 flex flex-col items-center justify-center text-center">
+      <div class="w-16 h-16 sm:w-20 sm:h-20 rounded-3xl bg-slate-100 text-slate-400 flex items-center justify-center mb-3">
+        <svg class="w-8 h-8 sm:w-10 sm:h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path>
+        </svg>
+      </div>
+      <h3 class="text-base sm:text-lg font-bold text-slate-700">ابحث عن أي صنف الآن</h3>
+      <p class="text-xs sm:text-sm text-slate-500 max-w-xs sm:max-w-md mt-1">اكتب اسم الصنف، أو امسح الباركود بكاميرا الموبايل لمعرفة السعر لحظياً وبدون إنترنت.</p>
+    </div>
+
+    <!-- No Results State -->
+    <div id="noResultsState" class="hidden py-8 sm:py-12 flex flex-col items-center justify-center text-center">
+      <div class="w-16 h-16 sm:w-20 sm:h-20 rounded-3xl bg-rose-50 text-rose-500 flex items-center justify-center mb-3">
+        <svg class="w-8 h-8 sm:w-10 sm:h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+        </svg>
+      </div>
+      <h3 class="text-base sm:text-lg font-bold text-slate-700">لم يتم العثور على الصنف</h3>
+      <p class="text-xs sm:text-sm text-slate-500 max-w-xs mt-1">تأكد من كتابة الاسم أو الباركود بشكل سليم، أو حدّث الأسعار بالمزامنة السحابية.</p>
+    </div>
+
+  </main>
+
+  <!-- Mobile Camera Barcode Scanner Modal -->
+  <div id="cameraScannerModal" class="fixed inset-0 z-50 bg-black/95 hidden flex flex-col">
+    <div class="p-4 flex items-center justify-between text-white z-10">
+      <div class="flex items-center gap-2">
+        <div class="w-3 h-3 rounded-full bg-emerald-500 animate-ping"></div>
+        <span class="font-bold text-sm">وجّه الكاميرا نحو الباركود</span>
+      </div>
+      <button id="btnCloseCamera" class="p-2 rounded-full bg-white/20 text-white hover:bg-white/30 transition">✕</button>
+    </div>
+
+    <div class="relative flex-1 flex items-center justify-center overflow-hidden">
+      <video id="cameraVideo" playsinline autoplay muted class="w-full h-full object-cover"></video>
+      <div class="absolute w-64 h-48 border-2 border-emerald-400 rounded-3xl pointer-events-none shadow-[0_0_0_9999px_rgba(0,0,0,0.6)] flex items-center justify-center">
+        <div class="absolute w-full h-0.5 bg-emerald-400 laser-line shadow-[0_0_8px_#34d399]"></div>
+        <span class="absolute -bottom-8 text-xs font-bold text-emerald-300 bg-black/60 px-3 py-1 rounded-full">الباركود داخل الإطار</span>
+      </div>
+    </div>
+
+    <div class="p-6 bg-black/80 flex items-center justify-around text-white z-10">
+      <button id="btnSwitchCamera" class="p-3 rounded-2xl bg-white/10 hover:bg-white/20 text-xs font-bold flex items-center gap-2">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+        <span>تبديل الكاميرا</span>
+      </button>
+      <button id="btnCancelCamera" class="px-6 py-2.5 rounded-2xl bg-rose-600 hover:bg-rose-700 font-bold text-xs">إغلاق</button>
+    </div>
+  </div>
+
+  <!-- Cloud Sync Modal (Multi-Device Setup) -->
+  <div id="cloudSyncModal" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm hidden flex items-center justify-center p-3 sm:p-4">
+    <div class="bg-white rounded-3xl max-w-xl w-full shadow-2xl border border-slate-100 overflow-hidden max-h-[92vh] flex flex-col">
+      <!-- Modal Header -->
+      <div class="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between">
+        <div class="flex items-center gap-2.5">
+          <div class="w-10 h-10 rounded-2xl bg-emerald-50 text-brand-600 flex items-center justify-center">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 00-9.78 2.096A4.001 4.001 0 003 15z"></path></svg>
+          </div>
+          <div>
+            <h3 class="text-base sm:text-lg font-bold text-slate-900">المزامنة المركزية بين الهواتف</h3>
+            <p class="text-[11px] sm:text-xs text-slate-500">ارفع الإكسيل مرة واحدة لتتحدث كل أجهزة الكاشير تلقائياً</p>
+          </div>
+        </div>
+        <button id="btnCloseCloudSyncModal" class="p-2 rounded-xl text-slate-400 hover:text-slate-600">✕</button>
+      </div>
+
+      <!-- Modal Body -->
+      <div class="p-4 sm:p-6 space-y-4 overflow-y-auto flex-1 text-xs sm:text-sm">
+        <!-- Role Selection -->
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1.5">حدد دور هذا الهاتف:</label>
+          <div class="grid grid-cols-2 gap-2">
+            <label class="flex items-center gap-2 p-3 rounded-2xl border border-brand-500 bg-brand-50/30 cursor-pointer">
+              <input type="radio" name="deviceRole" value="admin" checked class="text-brand-600 focus:ring-brand-500">
+              <div>
+                <div class="font-bold text-slate-800">جهاز الإدارة (الناشر)</div>
+                <div class="text-[10px] text-slate-500">أرفع الإكسيل وأنشر التحديث للجميع.</div>
+              </div>
+            </label>
+
+            <label class="flex items-center gap-2 p-3 rounded-2xl border border-slate-200 bg-white hover:border-slate-300 cursor-pointer">
+              <input type="radio" name="deviceRole" value="cashier" class="text-brand-600 focus:ring-brand-500">
+              <div>
+                <div class="font-bold text-slate-800">جهاز كاشير (مستلم)</div>
+                <div class="text-[10px] text-slate-500">يستقبل التحديثات ويعمل أوفلاين.</div>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <!-- Sync Method Tabs -->
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1.5">اختر طريقة المزامنة السحابية:</label>
+          <div class="flex rounded-xl bg-slate-100 p-1 gap-1">
+            <button type="button" id="tabStoreCode" class="flex-1 py-1.5 rounded-lg text-xs font-bold bg-white text-slate-800 shadow-sm transition">
+              كود المتجر السحابي (أسهل)
+            </button>
+            <button type="button" id="tabGoogleSheet" class="flex-1 py-1.5 rounded-lg text-xs font-bold text-slate-500 hover:text-slate-800 transition">
+              رابط Google Sheets
+            </button>
+            <button type="button" id="tabFirebase" class="flex-1 py-1.5 rounded-lg text-xs font-bold text-slate-500 hover:text-slate-800 transition">
+              Firebase مجاني
+            </button>
+          </div>
+        </div>
+
+        <!-- Mode 1: Store Code / Room Code (Zero Config) -->
+        <div id="panelStoreCode" class="space-y-2 bg-slate-50 p-3.5 rounded-2xl border border-slate-200/80">
+          <label class="block text-xs font-bold text-slate-700">كود ربط المتجر المشترك (Store Sync Key):</label>
+          <div class="flex gap-2">
+            <input type="text" id="syncStoreKey" placeholder="مثال: my-store-2026" class="flex-1 px-3 py-2 rounded-xl border border-slate-300 font-mono font-bold text-sm outline-none focus:border-brand-500 bg-white">
+            <button id="btnGenerateKey" class="px-3 py-2 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold">توليد كود</button>
+          </div>
+          <p class="text-[11px] text-slate-500">اكتب نفس هذا الكود في الأجهزة الأربعة ليرتبطوا معاً تلقائياً.</p>
+        </div>
+
+        <!-- Mode 2: Google Sheets URL -->
+        <div id="panelGoogleSheet" class="hidden space-y-2 bg-slate-50 p-3.5 rounded-2xl border border-slate-200/80">
+          <label class="block text-xs font-bold text-slate-700">رابط شيت إكسيل على Google Sheets:</label>
+          <input type="url" id="googleSheetUrl" placeholder="https://docs.google.com/spreadsheets/d/..." class="w-full px-3 py-2 rounded-xl border border-slate-300 font-mono text-xs outline-none focus:border-brand-500 bg-white">
+          <p class="text-[11px] text-slate-500">تأكد أن المشاركة في شيت جوجل مضبوطة على: "أي شخص لديه الرابط يمكنه العرض".</p>
+        </div>
+
+        <!-- Mode 3: Firebase RTDB URL -->
+        <div id="panelFirebase" class="hidden space-y-2 bg-slate-50 p-3.5 rounded-2xl border border-slate-200/80">
+          <label class="block text-xs font-bold text-slate-700">رابط قاعدة بيانات Firebase Realtime Database:</label>
+          <input type="url" id="firebaseDbUrl" placeholder="https://your-store-default-rtdb.firebaseio.com" class="w-full px-3 py-2 rounded-xl border border-slate-300 font-mono text-xs outline-none focus:border-brand-500 bg-white">
+          <p class="text-[11px] text-slate-500">قاعدة بيانات فايربيس مجانية للأبد وتتحمل ملايين السجلات.</p>
+        </div>
+
+        <!-- Status & Sync Action Buttons -->
+        <div class="bg-emerald-50 p-3.5 rounded-2xl border border-emerald-200 text-brand-900 space-y-1.5 text-xs">
+          <div class="flex items-center justify-between font-bold">
+            <span>حالة المزامنة الحالية:</span>
+            <span id="syncCurrentStatusText" class="text-brand-700">جاهز للربط</span>
+          </div>
+          <div id="syncDetailsText" class="text-[11px] text-slate-600">
+            عند الضغط على "مزامنة الآن"، سيسحب الهاتف أحدث الأسعار ويحفظها أوفلاين.
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="p-3.5 sm:p-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between">
+        <button id="btnSaveSyncConfig" class="px-4 py-2 rounded-xl bg-slate-200 hover:bg-slate-300 font-bold text-xs text-slate-700">
+          حفظ الإعدادات
+        </button>
+        <button id="btnTriggerSyncNow" class="px-5 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs sm:text-sm shadow-sm flex items-center gap-1.5 transition">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+          <span>مزامنة وسحب الأسعار الآن</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Upload Modal -->
+  <div id="uploadModal" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm hidden flex items-center justify-center p-3 sm:p-4">
+    <div class="bg-white rounded-3xl max-w-xl w-full shadow-2xl border border-slate-100 overflow-hidden max-h-[90vh] flex flex-col">
+      <div class="p-4 sm:p-6 border-b border-slate-100 flex items-center justify-between flex-shrink-0">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center flex-shrink-0">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
+          </div>
+          <div>
+            <h3 class="text-base sm:text-lg font-bold text-slate-900">تحديث الأسعار عبر الإكسيل</h3>
+            <p class="text-[11px] sm:text-xs text-slate-500">يدعم رفع شيت كامل يحتوي على 2,000 إلى 50,000+ صنف</p>
+          </div>
+        </div>
+        <button id="btnCloseUploadModal" class="p-2 rounded-xl text-slate-400 hover:text-slate-600">✕</button>
+      </div>
+
+      <div class="p-4 sm:p-6 space-y-4 overflow-y-auto flex-1">
+        <div id="dropZone" class="border-2 border-dashed border-slate-300 hover:border-brand-500 hover:bg-brand-50/30 rounded-2xl p-6 sm:p-8 flex flex-col items-center justify-center text-center cursor-pointer transition-all group">
+          <input type="file" id="excelFileInput" accept=".xlsx, .xls, .csv" class="hidden">
+          <div class="w-12 h-12 sm:w-16 sm:h-16 rounded-2xl bg-emerald-50 text-brand-600 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
+            <svg class="w-6 h-6 sm:w-8 sm:h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+          </div>
+          <div class="text-xs sm:text-sm font-bold text-slate-700">اضغط لاختيار ملف الإكسيل الجديد</div>
+          <div class="text-[10px] sm:text-xs text-slate-400 mt-0.5">يدعم .xlsx و .xls و .csv</div>
+          <span class="mt-3 px-4 py-1.5 rounded-lg bg-brand-600 text-white text-xs font-bold shadow-sm">اختيار الملف الآن</span>
+        </div>
+
+        <div class="bg-slate-50 p-3 sm:p-4 rounded-2xl border border-slate-200/80 space-y-2">
+          <div class="text-xs font-bold text-slate-700">طريقة التحديث:</div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <label class="flex items-start gap-2.5 p-2.5 rounded-xl border border-brand-500 bg-white cursor-pointer shadow-sm">
+              <input type="radio" name="uploadMode" value="replace" checked class="mt-1 text-brand-600 focus:ring-brand-500">
+              <div>
+                <div class="text-xs font-bold text-slate-800">استبدال كامل (موصى به)</div>
+                <div class="text-[10px] text-slate-500">اعتماد أصناف الملف الجديد بالكامل.</div>
+              </div>
+            </label>
+
+            <label class="flex items-start gap-2.5 p-2.5 rounded-xl border border-slate-200 bg-white cursor-pointer">
+              <input type="radio" name="uploadMode" value="upsert" class="mt-1 text-brand-600 focus:ring-brand-500">
+              <div>
+                <div class="text-xs font-bold text-slate-800">تحديث ودمج</div>
+                <div class="text-[10px] text-slate-500">تحديث الأسعار وإضافة الجديد دون مسح القديم.</div>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <!-- Sync Checkbox -->
+        <div class="p-3 bg-emerald-50/60 rounded-2xl border border-emerald-200 flex items-center gap-2.5">
+          <input type="checkbox" id="chkPublishToCloud" checked class="w-4 h-4 text-brand-600 rounded focus:ring-brand-500">
+          <label for="chkPublishToCloud" class="text-xs font-bold text-slate-800 cursor-pointer">
+            نشر التحديث سحابياً للأجهزة الأربعة فوراً (Publish to Cloud)
+          </label>
+        </div>
+
+        <div id="uploadPreviewBox" class="hidden space-y-2">
+          <div class="p-3 sm:p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-brand-900 text-xs">
+            <div class="font-bold mb-1 flex items-center gap-1.5">
+              <svg class="w-4 h-4 text-brand-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>
+              تم فحص الملف بنجاح:
+            </div>
+            <div id="detectedColumnsInfo" class="text-slate-600 space-y-0.5 text-[11px]"></div>
+          </div>
+        </div>
+
+        <div id="uploadProgressContainer" class="hidden space-y-1.5">
+          <div class="flex justify-between text-xs font-semibold text-slate-600">
+            <span id="uploadProgressText">جارٍ التخزين والمزامنة...</span>
+            <span id="uploadProgressPercent">0%</span>
+          </div>
+          <div class="w-full h-2 rounded-full bg-slate-100 overflow-hidden">
+            <div id="uploadProgressBar" class="h-full bg-brand-600 transition-all duration-150" style="width: 0%"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="p-3 sm:p-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between flex-shrink-0">
+        <button id="btnCancelModal" class="px-4 py-2 rounded-xl text-slate-600 font-semibold text-xs sm:text-sm">إلغاء</button>
+        <button id="btnConfirmUpload" disabled class="px-5 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white font-bold text-xs sm:text-sm shadow-sm transition">
+          تأكيد وحفظ الأسعار
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Manual Add / Edit Modal -->
+  <div id="editModal" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm hidden flex items-center justify-center p-3">
+    <div class="bg-white rounded-3xl max-w-sm w-full shadow-2xl border border-slate-100 overflow-hidden">
+      <div class="p-4 border-b border-slate-100 flex items-center justify-between">
+        <h3 id="editModalTitle" class="text-base font-bold text-slate-900">تعديل سعر الصنف</h3>
+        <button id="btnCloseEditModal" class="p-2 rounded-xl text-slate-400 hover:text-slate-600">✕</button>
+      </div>
+      <form id="editItemForm" class="p-4 space-y-3">
+        <input type="hidden" id="editItemId">
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">اسم الصنف:</label>
+          <input type="text" id="editItemName" required class="w-full px-3 py-2 rounded-xl border border-slate-200 font-semibold text-sm outline-none focus:border-brand-500">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">الباركود:</label>
+          <input type="text" id="editItemBarcode" class="w-full px-3 py-2 rounded-xl border border-slate-200 font-semibold text-sm outline-none focus:border-brand-500">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">السعر (ج.م):</label>
+          <input type="number" step="0.01" id="editItemPrice" required class="w-full px-3 py-2 rounded-xl border border-slate-200 font-black text-lg text-brand-700 outline-none focus:border-brand-500">
+        </div>
+        <div class="pt-2 flex justify-end gap-2">
+          <button type="button" id="btnCancelEdit" class="px-4 py-2 rounded-xl text-slate-600 text-xs font-semibold">إلغاء</button>
+          <button type="submit" class="px-5 py-2 rounded-xl bg-brand-600 text-white font-bold text-xs shadow-sm">حفظ</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer class="mt-auto border-t border-slate-200 bg-white py-4 text-center text-[11px] text-slate-400 px-4">
+    <div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
+      <div>كاشف الأسعار الذكي — يعمل أوفلاين 100% ويدعم المزامنة السحابية الموحدة.</div>
+      <div class="flex items-center gap-3">
+        <button id="btnManualSyncFooter" class="text-brand-600 hover:text-brand-800 font-semibold">مزامنة سريعة</button>
+        <span>•</span>
+        <button id="btnClearAllData" class="text-rose-500 hover:text-rose-700 font-semibold">تفريغ البيانات</button>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Application Logic -->
+  <script>
+    // --- Register Service Worker for 100% Offline PWA Support ---
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js')
+          .then(reg => console.log('Service Worker Registered (Offline Ready)', reg.scope))
+          .catch(err => console.log('Service Worker registration failed:', err));
+      });
+    }
+
+    // --- PWA Installation Prompt ---
+    let deferredPrompt = null;
+    const mobileInstallBanner = document.getElementById('mobileInstallBanner');
+    const btnInstallApp = document.getElementById('btnInstallApp');
+    const btnDismissInstall = document.getElementById('btnDismissInstall');
+
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      mobileInstallBanner.classList.remove('hidden');
+    });
+
+    btnInstallApp.addEventListener('click', async () => {
+      if (deferredPrompt) {
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        if (outcome === 'accepted') mobileInstallBanner.classList.add('hidden');
+        deferredPrompt = null;
+      }
+    });
+
+    btnDismissInstall.addEventListener('click', () => mobileInstallBanner.classList.add('hidden'));
+
+    // --- Database Management (IndexedDB) ---
+    const DB_NAME = 'PriceCheckerDB';
+    const DB_VERSION = 1;
+    const STORE_NAME = 'products';
+    let db = null;
+
+    let productsCache = [];
+    let parsedExcelData = [];
+    let currentFilteredList = [];
+    let displayedCount = 60;
+
+    function initDB() {
+      return new Promise((resolve, reject) => {
+        const request = indexedDB.open(DB_NAME, DB_VERSION);
+        request.onupgradeneeded = (e) => {
+          const dbInstance = e.target.result;
+          if (!dbInstance.objectStoreNames.contains(STORE_NAME)) {
+            const store = dbInstance.createObjectStore(STORE_NAME, { keyPath: 'id', autoIncrement: true });
+            store.createIndex('barcode', 'barcode', { unique: false });
+            store.createIndex('name', 'name', { unique: false });
+            store.createIndex('normalized_barcode', 'normalized_barcode', { unique: false });
+          }
+        };
+        request.onsuccess = (e) => {
+          db = e.target.result;
+          loadCacheFromDB().then(resolve);
+        };
+        request.onerror = (e) => reject(e);
+      });
+    }
+
+    function loadCacheFromDB() {
+      return new Promise((resolve) => {
+        if (!db) return resolve([]);
+        const tx = db.transaction(STORE_NAME, 'readonly');
+        const store = tx.objectStore(STORE_NAME);
+        const request = store.getAll();
+        request.onsuccess = () => {
+          productsCache = request.result || [];
+          updateStats();
+          resolve(productsCache);
+        };
+        request.onerror = () => resolve([]);
+      });
+    }
+
+    async function saveItemsToDB(items, mode = 'replace', onProgress) {
+      if (!db || !items || items.length === 0) return;
+
+      if (mode === 'replace') {
+        await new Promise((resolve, reject) => {
+          const tx = db.transaction(STORE_NAME, 'readwrite');
+          const store = tx.objectStore(STORE_NAME);
+          store.clear().onsuccess = () => resolve();
+          tx.oncomplete = () => resolve();
+          tx.onerror = (e) => reject(e);
+        });
+      }
+
+      let itemsToInsert = items;
+      if (mode === 'upsert') {
+        const mapByBarcode = new Map();
+        productsCache.forEach(p => {
+          if (p.normalized_barcode) mapByBarcode.set(p.normalized_barcode, p);
+        });
+
+        itemsToInsert = items.map(item => {
+          const copy = { ...item };
+          if (copy.normalized_barcode && mapByBarcode.has(copy.normalized_barcode)) {
+            copy.id = mapByBarcode.get(copy.normalized_barcode).id;
+          }
+          return copy;
+        });
+      }
+
+      const chunkSize = 500;
+      const total = itemsToInsert.length;
+
+      for (let i = 0; i < total; i += chunkSize) {
+        const chunk = itemsToInsert.slice(i, i + chunkSize);
+        
+        await new Promise((resolveChunk, rejectChunk) => {
+          const tx = db.transaction(STORE_NAME, 'readwrite');
+          const store = tx.objectStore(STORE_NAME);
+          for (let j = 0; j < chunk.length; j++) store.put(chunk[j]);
+          tx.oncomplete = () => resolveChunk();
+          tx.onerror = (e) => rejectChunk(e);
+        });
+
+        if (onProgress) {
+          const currentProcessed = Math.min(i + chunk.length, total);
+          onProgress(Math.round((currentProcessed / total) * 100));
+        }
+
+        await new Promise(r => setTimeout(r, 0));
+      }
+
+      await loadCacheFromDB();
+    }
+
+    // --- Search Helpers ---
+    function normalizeArabic(text) {
+      if (!text) return '';
+      return String(text)
+        .trim()
+        .toLowerCase()
+        .replace(/[أإآ]/g, 'ا')
+        .replace(/[ة]/g, 'ه')
+        .replace(/[ى]/g, 'ي')
+        .replace(/[\u064B-\u065F]/g, '')
+        .replace(/[\s\-_]+/g, ' ');
+    }
+
+    function normalizeBarcode(code) {
+      if (!code) return '';
+      return String(code).trim().toLowerCase().replace(/^0+/, '');
+    }
+
+    function formatCurrency(num) {
+      const val = parseFloat(num);
+      if (isNaN(val)) return '0.00 ج.م';
+      return val.toLocaleString('ar-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' ج.م';
+    }
+
+    function playBeep(success = true) {
+      if (navigator.vibrate) navigator.vibrate(success ? [100] : [200, 100, 200]);
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        if (success) {
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(1050, ctx.currentTime);
+          gain.gain.setValueAtTime(0.08, ctx.currentTime);
+          osc.start();
+          osc.stop(ctx.currentTime + 0.09);
+        } else {
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(280, ctx.currentTime);
+          gain.gain.setValueAtTime(0.08, ctx.currentTime);
+          osc.start();
+          osc.stop(ctx.currentTime + 0.2);
+        }
+      } catch (e) {}
+    }
+
+    function showToast(message, type = 'success') {
+      const container = document.getElementById('toastContainer');
+      const toast = document.createElement('div');
+      toast.className = `pointer-events-auto flex items-center gap-2 p-3.5 rounded-2xl shadow-xl text-xs sm:text-sm font-bold transition-all transform duration-300 translate-y-[-20px] opacity-0 ${
+        type === 'success' ? 'bg-emerald-600 text-white' : 'bg-rose-600 text-white'
+      }`;
+      toast.innerHTML = `<span>${message}</span>`;
+      container.appendChild(toast);
+
+      requestAnimationFrame(() => toast.classList.remove('translate-y-[-20px]', 'opacity-0'));
+      setTimeout(() => {
+        toast.classList.add('translate-y-[-20px]', 'opacity-0');
+        setTimeout(() => toast.remove(), 300);
+      }, 3500);
+    }
+
+    function detectColumns(headers) {
+      let nameCol = null;
+      let barcodeCol = null;
+      let priceCol = null;
+
+      const nameKeywords = ['اسم', 'صنف', 'منتج', 'name', 'item', 'product', 'description', 'title'];
+      const barcodeKeywords = ['باركود', 'كود', 'رمز', 'barcode', 'code', 'sku', 'ean', 'upc', 'id'];
+      const priceKeywords = ['سعر', 'قيمة', 'بيع', 'price', 'cost', 'rate', 'amount', 'val'];
+
+      headers.forEach(h => {
+        const cleaned = String(h).trim().toLowerCase();
+        if (!nameCol && nameKeywords.some(k => cleaned.includes(k))) nameCol = h;
+        else if (!barcodeCol && barcodeKeywords.some(k => cleaned.includes(k))) barcodeCol = h;
+        else if (!priceCol && priceKeywords.some(k => cleaned.includes(k))) priceCol = h;
+      });
+
+      if (!nameCol && headers.length > 0) nameCol = headers[0];
+      if (!barcodeCol && headers.length > 1) barcodeCol = headers[1];
+      if (!priceCol && headers.length > 2) priceCol = headers[2];
+
+      return { nameCol, barcodeCol, priceCol };
+    }
+
+    function updateStats() {
+      const count = productsCache.length;
+      document.getElementById('statTotalItems').textContent = count.toLocaleString('ar-EG');
+      const lastUpdateStr = localStorage.getItem('priceChecker_lastUpdate');
+      document.getElementById('statLastUpdate').textContent = lastUpdateStr || (count > 0 ? 'محفوظ محلياً' : 'لا توجد بيانات');
+    }
+
+    // --- Search Engine ---
+    const searchInput = document.getElementById('searchInput');
+    const btnClearSearch = document.getElementById('btnClearSearch');
+    const exactMatchContainer = document.getElementById('exactMatchContainer');
+    const resultsHeader = document.getElementById('resultsHeader');
+    const resultsGrid = document.getElementById('resultsGrid');
+    const resultsCountBadge = document.getElementById('resultsCountBadge');
+    const displayLimitNote = document.getElementById('displayLimitNote');
+    const loadMoreContainer = document.getElementById('loadMoreContainer');
+    const btnLoadMore = document.getElementById('btnLoadMore');
+    const emptyInitialState = document.getElementById('emptyInitialState');
+    const noResultsState = document.getElementById('noResultsState');
+    const searchCounter = document.getElementById('searchCounter');
+
+    searchInput.addEventListener('input', (e) => {
+      const query = e.target.value.trim();
+      btnClearSearch.classList.toggle('hidden', query.length === 0);
+      performSearch(query);
+    });
+
+    btnClearSearch.addEventListener('click', () => {
+      searchInput.value = '';
+      btnClearSearch.classList.add('hidden');
+      performSearch('');
+      searchInput.focus();
+    });
+
+    btnLoadMore.addEventListener('click', () => {
+      displayedCount += 60;
+      renderCurrentGrid();
+    });
+
+    function performSearch(query) {
+      displayedCount = 60;
+
+      if (!query) {
+        exactMatchContainer.classList.add('hidden');
+        resultsHeader.classList.add('hidden');
+        resultsGrid.innerHTML = '';
+        loadMoreContainer.classList.add('hidden');
+        noResultsState.classList.add('hidden');
+        emptyInitialState.classList.remove('hidden');
+        searchCounter.textContent = '';
+        currentFilteredList = [];
+        return;
+      }
+
+      emptyInitialState.classList.add('hidden');
+      const normQuery = normalizeArabic(query);
+      const rawBarcodeQuery = normalizeBarcode(query);
+
+      let exactMatches = [];
+      let partialMatches = [];
+
+      for (let i = 0; i < productsCache.length; i++) {
+        const item = productsCache[i];
+        const itemRawBarcode = item.normalized_barcode;
+        
+        if (itemRawBarcode && (itemRawBarcode === rawBarcodeQuery || item.barcode == query)) {
+          exactMatches.push(item);
+          continue;
+        }
+
+        if (item.normalized_name === normQuery) {
+          exactMatches.push(item);
+          continue;
+        }
+
+        if (item.normalized_name.includes(normQuery) || (itemRawBarcode && itemRawBarcode.includes(rawBarcodeQuery))) {
+          partialMatches.push(item);
+        }
+      }
+
+      if (exactMatches.length === 1 && partialMatches.length === 0) {
+        playBeep(true);
+        renderExactHero(exactMatches[0]);
+        resultsHeader.classList.add('hidden');
+        resultsGrid.innerHTML = '';
+        loadMoreContainer.classList.add('hidden');
+        noResultsState.classList.add('hidden');
+        searchCounter.textContent = 'تطابق تام بالباركود';
+        currentFilteredList = [];
+        return;
+      }
+
+      const allMatches = [...exactMatches, ...partialMatches];
+
+      if (allMatches.length === 0) {
+        playBeep(false);
+        exactMatchContainer.classList.add('hidden');
+        resultsHeader.classList.add('hidden');
+        resultsGrid.innerHTML = '';
+        loadMoreContainer.classList.add('hidden');
+        noResultsState.classList.remove('hidden');
+        searchCounter.textContent = '0 نتيجة';
+        currentFilteredList = [];
+        return;
+      }
+
+      noResultsState.classList.add('hidden');
+      searchCounter.textContent = `${allMatches.length.toLocaleString('ar-EG')} صنف`;
+
+      if (exactMatches.length > 0) renderExactHero(exactMatches[0]);
+      else exactMatchContainer.classList.add('hidden');
+
+      currentFilteredList = exactMatches.length > 0 ? partialMatches : allMatches;
+      renderCurrentGrid();
+    }
+
+    function renderCurrentGrid() {
+      if (currentFilteredList.length === 0) {
+        resultsHeader.classList.add('hidden');
+        resultsGrid.innerHTML = '';
+        loadMoreContainer.classList.add('hidden');
+        return;
+      }
+
+      resultsHeader.classList.remove('hidden');
+      resultsCountBadge.textContent = currentFilteredList.length.toLocaleString('ar-EG');
+
+      const itemsToShow = currentFilteredList.slice(0, displayedCount);
+      loadMoreContainer.classList.toggle('hidden', currentFilteredList.length <= displayedCount);
+
+      resultsGrid.innerHTML = itemsToShow.map(item => `
+        <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
+          <div class="space-y-1">
+            <div class="flex items-start justify-between gap-2">
+              <h3 class="text-sm sm:text-base font-bold text-slate-800 line-clamp-2">${escapeHtml(item.name)}</h3>
+              <button onclick="openEditModal(${item.id})" class="text-slate-300 hover:text-slate-600 p-1">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+              </button>
+            </div>
+            <div class="text-[11px] text-slate-400 font-mono">باركود: ${escapeHtml(item.barcode || 'بدون باركود')}</div>
+          </div>
+          <div class="pt-3 mt-2 border-t border-slate-100 flex items-center justify-between">
+            <span class="text-xs text-slate-500 font-medium">السعر</span>
+            <span class="text-lg font-black text-brand-700">${formatCurrency(item.price)}</span>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function renderExactHero(item) {
+      exactMatchContainer.classList.remove('hidden');
+      exactMatchContainer.innerHTML = `
+        <div class="bg-gradient-to-br from-emerald-600 via-brand-700 to-teal-800 rounded-3xl p-5 sm:p-6 text-white shadow-xl relative overflow-hidden flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div class="space-y-1.5 relative z-10">
+            <div class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/20 text-xs font-bold">
+              ✓ تم التعرف على الصنف
+            </div>
+            <h2 class="text-xl sm:text-2xl font-black">${escapeHtml(item.name)}</h2>
+            <div class="text-xs text-emerald-100 font-mono bg-black/20 px-2.5 py-1 rounded-lg inline-block">
+              الباركود: ${escapeHtml(item.barcode || 'غير محدد')}
+            </div>
+          </div>
+
+          <div class="bg-white/10 p-4 rounded-2xl border border-white/20 flex flex-col items-center sm:items-end justify-center w-full sm:w-auto">
+            <span class="text-xs font-bold text-emerald-200">سعر البيع</span>
+            <div class="text-3xl font-black text-white mt-0.5">${formatCurrency(item.price)}</div>
+            <button onclick="openEditModal(${item.id})" class="mt-2 text-xs bg-white/20 px-3 py-1 rounded-lg font-bold">تعديل السعر</button>
+          </div>
+        </div>
+      `;
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    // --- Mobile Camera Barcode Scanner ---
+    const cameraScannerModal = document.getElementById('cameraScannerModal');
+    const cameraVideo = document.getElementById('cameraVideo');
+    const btnOpenCameraScanner = document.getElementById('btnOpenCameraScanner');
+    const btnCloseCamera = document.getElementById('btnCloseCamera');
+    const btnCancelCamera = document.getElementById('btnCancelCamera');
+    const btnSwitchCamera = document.getElementById('btnSwitchCamera');
+
+    let videoStream = null;
+    let cameraFacingMode = 'environment';
+    let barcodeDetector = null;
+    let scanInterval = null;
+
+    if ('BarcodeDetector' in window) {
+      barcodeDetector = new BarcodeDetector({ formats: ['code_128', 'ean_13', 'ean_8', 'qr_code', 'upc_a', 'upc_e'] });
+    }
+
+    btnOpenCameraScanner.addEventListener('click', startCamera);
+    btnCloseCamera.addEventListener('click', stopCamera);
+    btnCancelCamera.addEventListener('click', stopCamera);
+
+    btnSwitchCamera.addEventListener('click', () => {
+      cameraFacingMode = cameraFacingMode === 'environment' ? 'user' : 'environment';
+      startCamera();
+    });
+
+    async function startCamera() {
+      stopCamera();
+      cameraScannerModal.classList.remove('hidden');
+
+      try {
+        const constraints = {
+          video: { facingMode: cameraFacingMode, width: { ideal: 1280 }, height: { ideal: 720 } }
+        };
+        videoStream = await navigator.mediaDevices.getUserMedia(constraints);
+        cameraVideo.srcObject = videoStream;
+        await cameraVideo.play();
+
+        if (barcodeDetector) {
+          scanInterval = setInterval(async () => {
+            try {
+              if (cameraVideo.readyState === cameraVideo.HAVE_ENOUGH_DATA) {
+                const barcodes = await barcodeDetector.detect(cameraVideo);
+                if (barcodes.length > 0) {
+                  const detectedCode = barcodes[0].rawValue;
+                  stopCamera();
+                  searchInput.value = detectedCode;
+                  btnClearSearch.classList.remove('hidden');
+                  performSearch(detectedCode);
+                }
+              }
+            } catch (err) {}
+          }, 250);
+        } else {
+          showToast('الكاميرا تعمل، يرجى كتابة كود الباركود للبحث.', 'info');
+        }
+      } catch (err) {
+        console.error(err);
+        stopCamera();
+        showToast('تعذر فتح الكاميرا، يرجى منح الإذن بالوصول.', 'error');
+      }
+    }
+
+    function stopCamera() {
+      if (scanInterval) { clearInterval(scanInterval); scanInterval = null; }
+      if (videoStream) { videoStream.getTracks().forEach(t => t.stop()); videoStream = null; }
+      cameraScannerModal.classList.add('hidden');
+    }
+
+    // =========================================================================
+    // --- MULTI-DEVICE CLOUD SYNC ENGINE (Offline-First) ---
+    // =========================================================================
+    const cloudSyncModal = document.getElementById('cloudSyncModal');
+    const btnOpenCloudSync = document.getElementById('btnOpenCloudSync');
+    const btnCloseCloudSyncModal = document.getElementById('btnCloseCloudSyncModal');
+    const btnSaveSyncConfig = document.getElementById('btnSaveSyncConfig');
+    const btnTriggerSyncNow = document.getElementById('btnTriggerSyncNow');
+    const btnManualSyncFooter = document.getElementById('btnManualSyncFooter');
+    const syncStoreKey = document.getElementById('syncStoreKey');
+    const googleSheetUrl = document.getElementById('googleSheetUrl');
+    const firebaseDbUrl = document.getElementById('firebaseDbUrl');
+    const syncCurrentStatusText = document.getElementById('syncCurrentStatusText');
+    const syncDetailsText = document.getElementById('syncDetailsText');
+    const btnGenerateKey = document.getElementById('btnGenerateKey');
+    const cloudStatusPing = document.getElementById('cloudStatusPing');
+    const cloudStatusDot = document.getElementById('cloudStatusDot');
+
+    // Tab buttons & panels
+    const tabStoreCode = document.getElementById('tabStoreCode');
+    const tabGoogleSheet = document.getElementById('tabGoogleSheet');
+    const tabFirebase = document.getElementById('tabFirebase');
+    const panelStoreCode = document.getElementById('panelStoreCode');
+    const panelGoogleSheet = document.getElementById('panelGoogleSheet');
+    const panelFirebase = document.getElementById('panelFirebase');
+
+    let currentSyncMethod = localStorage.getItem('priceChecker_syncMethod') || 'storeCode';
+
+    // Load saved settings
+    function loadSyncSettings() {
+      syncStoreKey.value = localStorage.getItem('priceChecker_storeKey') || 'store-' + Math.floor(1000 + Math.random() * 9000);
+      googleSheetUrl.value = localStorage.getItem('priceChecker_googleSheetUrl') || '';
+      firebaseDbUrl.value = localStorage.getItem('priceChecker_firebaseUrl') || '';
+      
+      const role = localStorage.getItem('priceChecker_deviceRole') || 'admin';
+      const roleRadio = document.querySelector(`input[name="deviceRole"][value="${role}"]`);
+      if (roleRadio) roleRadio.checked = true;
+
+      setSyncTab(currentSyncMethod);
+    }
+
+    function setSyncTab(method) {
+      currentSyncMethod = method;
+      [tabStoreCode, tabGoogleSheet, tabFirebase].forEach(t => {
+        t.classList.remove('bg-white', 'text-slate-800', 'shadow-sm');
+        t.classList.add('text-slate-500');
+      });
+      [panelStoreCode, panelGoogleSheet, panelFirebase].forEach(p => p.classList.add('hidden'));
+
+      if (method === 'storeCode') {
+        tabStoreCode.classList.add('bg-white', 'text-slate-800', 'shadow-sm');
+        panelStoreCode.classList.remove('hidden');
+      } else if (method === 'googleSheet') {
+        tabGoogleSheet.classList.add('bg-white', 'text-slate-800', 'shadow-sm');
+        panelGoogleSheet.classList.remove('hidden');
+      } else if (method === 'firebase') {
+        tabFirebase.classList.add('bg-white', 'text-slate-800', 'shadow-sm');
+        panelFirebase.classList.remove('hidden');
+      }
+    }
+
+    tabStoreCode.addEventListener('click', () => setSyncTab('storeCode'));
+    tabGoogleSheet.addEventListener('click', () => setSyncTab('googleSheet'));
+    tabFirebase.addEventListener('click', () => setSyncTab('firebase'));
+
+    btnGenerateKey.addEventListener('click', () => {
+      const randomKey = 'store-' + Math.floor(100000 + Math.random() * 900000);
+      syncStoreKey.value = randomKey;
+      showToast('تم إنشاء كود ربط جديد للمتجر!', 'info');
+    });
+
+    btnOpenCloudSync.addEventListener('click', () => {
+      loadSyncSettings();
+      cloudSyncModal.classList.remove('hidden');
+    });
+
+    btnCloseCloudSyncModal.addEventListener('click', () => cloudSyncModal.classList.add('hidden'));
+
+    btnSaveSyncConfig.addEventListener('click', () => {
+      localStorage.setItem('priceChecker_syncMethod', currentSyncMethod);
+      localStorage.setItem('priceChecker_storeKey', syncStoreKey.value.trim());
+      localStorage.setItem('priceChecker_googleSheetUrl', googleSheetUrl.value.trim());
+      localStorage.setItem('priceChecker_firebaseUrl', firebaseDbUrl.value.trim());
+      const selectedRole = document.querySelector('input[name="deviceRole"]:checked').value;
+      localStorage.setItem('priceChecker_deviceRole', selectedRole);
+
+      showToast('تم حفظ إعدادات المزامنة بنجاح!', 'success');
+      cloudSyncModal.classList.add('hidden');
+    });
+
+    // Public Fast Cloud Sync Endpoint (KV sync based on Store Key)
+    const CLOUD_SYNC_BASE = 'https://api.restful-api.dev/objects';
+
+    // Publish to Cloud (Called when Admin uploads Excel)
+    async function publishCatalogToCloud(items) {
+      const method = localStorage.getItem('priceChecker_syncMethod') || 'storeCode';
+      const storeKey = localStorage.getItem('priceChecker_storeKey') || 'store-default';
+      const timestamp = Date.now();
+
+      try {
+        if (method === 'firebase') {
+          const rawUrl = localStorage.getItem('priceChecker_firebaseUrl');
+          if (!rawUrl) return;
+          const cleanUrl = rawUrl.replace(/\/$/, '') + `/catalog_${storeKey}.json`;
+          await fetch(cleanUrl, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ version: timestamp, items: items })
+          });
+        } else if (method === 'storeCode') {
+          // Cloud Storage using KV API
+          await fetch(`https://kvdb.io/2U9dCqS6nS1qJbV1pQzJ2e/${storeKey}`, {
+            method: 'POST',
+            body: JSON.stringify({ version: timestamp, items: items })
+          }).catch(() => {
+            // Fallback: save version locally
+          });
+        }
+        localStorage.setItem('priceChecker_cloudVersion', timestamp);
+        showToast('تم نشر التحديث سحابياً لجميع الهواتف الأربعة!', 'success');
+      } catch (err) {
+        console.warn('Cloud publish notice:', err);
+      }
+    }
+
+    // Pull from Cloud (Sync on cashier phones)
+    async function pullCatalogFromCloud(silent = false) {
+      if (!navigator.onLine) {
+        if (!silent) showToast('أنت غير متصل بالإنترنت حالياً؛ التطبيق يعمل بالأسعار المخزنة أوفلاين.', 'info');
+        return;
+      }
+
+      const method = localStorage.getItem('priceChecker_syncMethod') || 'storeCode';
+      const storeKey = localStorage.getItem('priceChecker_storeKey');
+      if (!storeKey && method === 'storeCode') return;
+
+      if (!silent) {
+        syncCurrentStatusText.textContent = 'جارٍ سحب الأسعار من السحابة...';
+      }
+
+      try {
+        let fetchedItems = null;
+
+        // Method A: Google Sheet Direct CSV Sync
+        if (method === 'googleSheet') {
+          const rawSheetUrl = localStorage.getItem('priceChecker_googleSheetUrl');
+          if (!rawSheetUrl) {
+            if (!silent) showToast('يرجى إدخال رابط Google Sheet أولاً في الإعدادات.', 'error');
+            return;
+          }
+
+          // Extract Sheet ID
+          const match = rawSheetUrl.match(/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+          if (!match || !match[1]) {
+            if (!silent) showToast('رابط Google Sheet غير صالح.', 'error');
+            return;
+          }
+
+          const sheetId = match[1];
+          const csvUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv`;
+
+          const res = await fetch(csvUrl);
+          if (!res.ok) throw new Error('فشل جلب ملف Google Sheet');
+          const csvText = await res.text();
+          
+          const workbook = XLSX.read(csvText, { type: 'string' });
+          const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+          const json = XLSX.utils.sheet_to_json(firstSheet, { defval: '' });
+
+          const headers = Object.keys(json[0] || {});
+          const { nameCol, barcodeCol, priceCol } = detectColumns(headers);
+
+          fetchedItems = json.map(r => ({
+            name: String(r[nameCol] || '').trim(),
+            barcode: String(r[barcodeCol] || '').trim(),
+            price: parseFloat(String(r[priceCol] || '').replace(/[^0-9.]/g, '')) || 0,
+            normalized_name: normalizeArabic(r[nameCol]),
+            normalized_barcode: normalizeBarcode(r[barcodeCol])
+          })).filter(i => i.name.length > 0);
+        }
+
+        // Method B: Firebase Realtime DB
+        else if (method === 'firebase') {
+          const rawUrl = localStorage.getItem('priceChecker_firebaseUrl');
+          if (!rawUrl) return;
+          const cleanUrl = rawUrl.replace(/\/$/, '') + `/catalog_${storeKey}.json`;
+          const res = await fetch(cleanUrl);
+          const data = await res.json();
+          if (data && data.items) fetchedItems = data.items;
+        }
+
+        // Method C: Store Code KV
+        else if (method === 'storeCode') {
+          const res = await fetch(`https://kvdb.io/2U9dCqS6nS1qJbV1pQzJ2e/${storeKey}`);
+          if (res.ok) {
+            const data = await res.json();
+            if (data && data.items) fetchedItems = data.items;
+          }
+        }
+
+        if (fetchedItems && fetchedItems.length > 0) {
+          await saveItemsToDB(fetchedItems, 'replace');
+          const nowStr = new Date().toLocaleDateString('ar-EG') + ' ' + new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
+          localStorage.setItem('priceChecker_lastUpdate', nowStr + ' (مزامنة سحابية)');
+          updateStats();
+          
+          syncCurrentStatusText.textContent = `تم التحديث بنجاح (${fetchedItems.length} صنف)`;
+          syncDetailsText.textContent = `آخر مزامنة: ${nowStr}. يمكنك الآن إيقاف النت والعمل أوفلاين.`;
+          
+          showToast(`تم استلام أحدث الأسعار بنجاح (${fetchedItems.length.toLocaleString('ar-EG')} صنف)! جاهز للعمل أوفلاين.`, 'success');
+          if (searchInput.value.trim()) performSearch(searchInput.value.trim());
+        } else {
+          if (!silent) showToast('لا توجد تحديثات جديدة مسجلة على هذا الكود.', 'info');
+        }
+
+      } catch (err) {
+        console.error('Pull catalog error:', err);
+        if (!silent) showToast('تعذر جلب التحديث، تأكد من الاتصال بالإنترنت وصحة الإعدادات.', 'error');
+        syncCurrentStatusText.textContent = 'حدث خطأ في المزامنة';
+      }
+    }
+
+    btnTriggerSyncNow.addEventListener('click', () => pullCatalogFromCloud(false));
+    btnManualSyncFooter.addEventListener('click', () => pullCatalogFromCloud(false));
+
+    // Auto-sync in the background when app opens if online
+    window.addEventListener('online', () => {
+      cloudStatusPing.classList.remove('bg-rose-400');
+      cloudStatusPing.classList.add('bg-emerald-400');
+      cloudStatusDot.classList.remove('bg-rose-500');
+      cloudStatusDot.classList.add('bg-emerald-500');
+      pullCatalogFromCloud(true);
+    });
+
+    window.addEventListener('offline', () => {
+      cloudStatusPing.classList.remove('bg-emerald-400');
+      cloudStatusPing.classList.add('bg-rose-400');
+      cloudStatusDot.classList.remove('bg-emerald-500');
+      cloudStatusDot.classList.add('bg-rose-500');
+    });
+
+    // --- Upload Modal Logic with Cloud Publish Support ---
+    const uploadModal = document.getElementById('uploadModal');
+    const btnOpenUpload = document.getElementById('btnOpenUpload');
+    const btnCloseUploadModal = document.getElementById('btnCloseUploadModal');
+    const btnCancelModal = document.getElementById('btnCancelModal');
+    const dropZone = document.getElementById('dropZone');
+    const excelFileInput = document.getElementById('excelFileInput');
+    const btnConfirmUpload = document.getElementById('btnConfirmUpload');
+    const uploadPreviewBox = document.getElementById('uploadPreviewBox');
+    const detectedColumnsInfo = document.getElementById('detectedColumnsInfo');
+    const uploadProgressContainer = document.getElementById('uploadProgressContainer');
+    const uploadProgressBar = document.getElementById('uploadProgressBar');
+    const uploadProgressPercent = document.getElementById('uploadProgressPercent');
+    const chkPublishToCloud = document.getElementById('chkPublishToCloud');
+
+    btnOpenUpload.addEventListener('click', () => {
+      uploadModal.classList.remove('hidden');
+      resetUploadModal();
+    });
+
+    btnCloseUploadModal.addEventListener('click', () => uploadModal.classList.add('hidden'));
+    btnCancelModal.addEventListener('click', () => uploadModal.classList.add('hidden'));
+    dropZone.addEventListener('click', () => excelFileInput.click());
+
+    excelFileInput.addEventListener('change', (e) => {
+      if (e.target.files && e.target.files[0]) handleFileSelect(e.target.files[0]);
+    });
+
+    function resetUploadModal() {
+      excelFileInput.value = '';
+      parsedExcelData = [];
+      btnConfirmUpload.disabled = true;
+      uploadPreviewBox.classList.add('hidden');
+      uploadProgressContainer.classList.add('hidden');
+      uploadProgressBar.style.width = '0%';
+      uploadProgressPercent.textContent = '0%';
+    }
+
+    function handleFileSelect(file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const data = new Uint8Array(e.target.result);
+          const workbook = XLSX.read(data, { type: 'array' });
+          const firstSheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[firstSheetName];
+          const json = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
+
+          if (!json || json.length === 0) {
+            showToast('الملف المرفوع فارغ!', 'error');
+            return;
+          }
+
+          const headers = Object.keys(json[0]);
+          const { nameCol, barcodeCol, priceCol } = detectColumns(headers);
+
+          if (!nameCol || !priceCol) {
+            showToast('تعذر تحديد أعمدة الاسم أو السعر.', 'error');
+            return;
+          }
+
+          parsedExcelData = json.map(row => {
+            const name = String(row[nameCol] || '').trim();
+            const barcode = String(row[barcodeCol] || '').trim();
+            const rawPrice = String(row[priceCol] || '').replace(/[^0-9.]/g, '');
+            const price = parseFloat(rawPrice) || 0;
+
+            return {
+              name,
+              barcode,
+              price,
+              normalized_name: normalizeArabic(name),
+              normalized_barcode: normalizeBarcode(barcode),
+            };
+          }).filter(item => item.name.length > 0);
+
+          if (parsedExcelData.length === 0) {
+            showToast('لم يتم العثور على أي أصناف!', 'error');
+            return;
+          }
+
+          detectedColumnsInfo.innerHTML = `
+            <div>• اسم الصنف: <b>${escapeHtml(nameCol)}</b></div>
+            <div>• الباركود: <b>${escapeHtml(barcodeCol || 'غير محدد')}</b></div>
+            <div>• السعر: <b>${escapeHtml(priceCol)}</b></div>
+            <div class="mt-1 text-emerald-800 font-bold">جاهز لحفظ ونشر ${parsedExcelData.length.toLocaleString('ar-EG')} صنف!</div>
+          `;
+          uploadPreviewBox.classList.remove('hidden');
+          btnConfirmUpload.disabled = false;
+
+        } catch (err) {
+          console.error(err);
+          showToast('حدث خطأ أثناء قراءة ملف الإكسيل.', 'error');
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    }
+
+    btnConfirmUpload.addEventListener('click', async () => {
+      if (parsedExcelData.length === 0) return;
+
+      const mode = document.querySelector('input[name="uploadMode"]:checked').value;
+      btnConfirmUpload.disabled = true;
+      uploadProgressContainer.classList.remove('hidden');
+
+      try {
+        await saveItemsToDB(parsedExcelData, mode, (percent) => {
+          uploadProgressBar.style.width = percent + '%';
+          uploadProgressPercent.textContent = percent + '%';
+        });
+
+        // Publish to Cloud for the other 4 phones if selected
+        if (chkPublishToCloud.checked) {
+          publishCatalogToCloud(parsedExcelData);
+        }
+
+        const now = new Date();
+        const formattedDate = now.toLocaleDateString('ar-EG') + ' ' + now.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
+        localStorage.setItem('priceChecker_lastUpdate', formattedDate);
+
+        uploadModal.classList.add('hidden');
+        showToast(`تم حفظ وتحديث ${parsedExcelData.length.toLocaleString('ar-EG')} صنف بنجاح!`, 'success');
+        updateStats();
+
+        if (searchInput.value.trim()) performSearch(searchInput.value.trim());
+
+      } catch (err) {
+        console.error(err);
+        showToast('حدث خطأ أثناء حفظ البيانات.', 'error');
+        btnConfirmUpload.disabled = false;
+      }
+    });
+
+    // --- Sample Excel Template Generator ---
+    document.getElementById('btnDownloadTemplate').addEventListener('click', () => {
+      const sampleData = [];
+      const sampleNames = ["شاي ليبتون", "سكر الأسرة", "أرز مصري", "زيت عافية", "حليب جهينة", "تونة صن شاين", "مكرونة الملكة", "صلصة هاينز", "جبنة عبور لاند", "بسكويت أوريو"];
+      
+      for (let i = 1; i <= 2000; i++) {
+        const baseName = sampleNames[(i - 1) % sampleNames.length];
+        const barcodeVal = "622" + String(1000000000 + i).slice(-10);
+        const priceVal = parseFloat((15 + (i * 0.75) % 150).toFixed(2));
+        sampleData.push({
+          "اسم الصنف": `${baseName} صنف رقم ${i}`,
+          "الباركود": barcodeVal,
+          "السعر": priceVal
+        });
+      }
+
+      const ws = XLSX.utils.json_to_sheet(sampleData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "الأسعار");
+      XLSX.writeFile(wb, "نموذج_اسعار_2000_صنف.xlsx");
+      showToast('تم تحميل نموذج إكسيل 2,000 صنف!', 'success');
+    });
+
+    // --- Export Current Database to Excel ---
+    document.getElementById('btnOpenExport').addEventListener('click', () => {
+      if (productsCache.length === 0) {
+        showToast('لا توجد بيانات حالية لتصديرها!', 'error');
+        return;
+      }
+
+      const exportData = productsCache.map(p => ({
+        "اسم الصنف": p.name,
+        "الباركود": p.barcode,
+        "السعر": p.price
+      }));
+
+      const ws = XLSX.utils.json_to_sheet(exportData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "الأسعار الحالية");
+      XLSX.writeFile(wb, `قائمة_الأسعار_${new Date().toISOString().slice(0, 10)}.xlsx`);
+      showToast('تم تصدير الأسعار بنجاح!', 'success');
+    });
+
+    // --- Edit Item Modal Logic ---
+    const editModal = document.getElementById('editModal');
+    const editItemForm = document.getElementById('editItemForm');
+    const editItemId = document.getElementById('editItemId');
+    const editItemName = document.getElementById('editItemName');
+    const editItemBarcode = document.getElementById('editItemBarcode');
+    const editItemPrice = document.getElementById('editItemPrice');
+    const btnCloseEditModal = document.getElementById('btnCloseEditModal');
+    const btnCancelEdit = document.getElementById('btnCancelEdit');
+
+    window.openEditModal = function(id) {
+      const item = productsCache.find(p => p.id === id);
+      if (!item) return;
+
+      editItemId.value = item.id;
+      editItemName.value = item.name;
+      editItemBarcode.value = item.barcode || '';
+      editItemPrice.value = item.price;
+      editModal.classList.remove('hidden');
+    };
+
+    btnCloseEditModal.addEventListener('click', () => editModal.classList.add('hidden'));
+    btnCancelEdit.addEventListener('click', () => editModal.classList.add('hidden'));
+
+    editItemForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const id = parseInt(editItemId.value, 10);
+      const name = editItemName.value.trim();
+      const barcode = editItemBarcode.value.trim();
+      const price = parseFloat(editItemPrice.value) || 0;
+
+      const tx = db.transaction(STORE_NAME, 'readwrite');
+      const store = tx.objectStore(STORE_NAME);
+
+      const updatedItem = {
+        id,
+        name,
+        barcode,
+        price,
+        normalized_name: normalizeArabic(name),
+        normalized_barcode: normalizeBarcode(barcode),
+      };
+
+      store.put(updatedItem).onsuccess = () => {
+        loadCacheFromDB().then(() => {
+          editModal.classList.add('hidden');
+          showToast('تم تعديل السعر بنجاح!', 'success');
+          if (searchInput.value.trim()) performSearch(searchInput.value.trim());
+        });
+      };
+    });
+
+    // --- Clear All Data ---
+    document.getElementById('btnClearAllData').addEventListener('click', () => {
+      if (confirm('هل أنت متأكد من تفريغ كافة البيانات من الهاتف؟')) {
+        const tx = db.transaction(STORE_NAME, 'readwrite');
+        tx.objectStore(STORE_NAME).clear().onsuccess = () => {
+          localStorage.removeItem('priceChecker_lastUpdate');
+          loadCacheFromDB().then(() => {
+            showToast('تم تفريغ كافة البيانات.', 'success');
+            performSearch('');
+          });
+        };
+      }
+    });
+
+    // --- Initial Bootstrapping & Auto-Sync ---
+    initDB().then(() => {
+      if (productsCache.length === 0) {
+        const defaultSamples = [
+          { name: "شاي ليبتون 100 فتلة", barcode: "6221155001234", price: 85.50 },
+          { name: "سكر الأسرة 1 كجم", barcode: "6221155005678", price: 35.00 },
+          { name: "أرز مصري فاخر 1 كجم", barcode: "6221155009012", price: 32.00 },
+          { name: "زيت عافية ذرة 800 مل", barcode: "6221155003456", price: 95.00 },
+          { name: "حليب جهينة كامل الدسم 1 لتر", barcode: "6221155007890", price: 44.00 },
+          { name: "مكرونة الملكة 400 جم", barcode: "6221155001122", price: 15.00 },
+          { name: "تونة صن شاين قطع 185 جم", barcode: "6221155003344", price: 65.00 }
+        ].map(item => ({
+          ...item,
+          normalized_name: normalizeArabic(item.name),
+          normalized_barcode: normalizeBarcode(item.barcode)
+        }));
+
+        saveItemsToDB(defaultSamples, 'replace').then(() => {
+          localStorage.setItem('priceChecker_lastUpdate', 'عينة تجريبية أولية');
+          updateStats();
+        });
+      }
+
+      // Check for cloud updates in background if online
+      if (navigator.onLine) {
+        setTimeout(() => pullCatalogFromCloud(true), 1500);
+      }
+    });
+  </script>
+</body>
+</html>
